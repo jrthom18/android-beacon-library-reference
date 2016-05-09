@@ -4,12 +4,15 @@
     android:versionName="1.0" >
 
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/AppTheme" 
-        android:name="BeaconReferenceApplication">
+        android:name="BeaconReferenceApplication"
+        android:launchMode="singleInstance">
         <activity
             android:name="org.altbeacon.beaconreference.MonitoringActivity"
             android:label="@string/app_name" >

@@ -3,7 +3,6 @@ package org.altbeacon.beaconreference;
 import java.util.Collection;
 
 import android.app.Activity;
-
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.util.Log;
@@ -14,8 +13,10 @@ import org.altbeacon.beacon.Beacon;
 import org.altbeacon.beacon.BeaconConsumer;
 import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
+import org.altbeacon.beacon.MonitorNotifier;
 import org.altbeacon.beacon.RangeNotifier;
 import org.altbeacon.beacon.Region;
+import org.altbeacon.beacon.utils.UrlBeaconUrlCompressor;
 
 public class RangingActivity extends Activity implements BeaconConsumer {
     protected static final String TAG = "RangingActivity";
@@ -55,12 +56,12 @@ public class RangingActivity extends Activity implements BeaconConsumer {
               if (beacons.size() > 0) {
                  //EditText editText = (EditText)RangingActivity.this.findViewById(R.id.rangingText);
                  Beacon firstBeacon = beacons.iterator().next();
-                 logToDisplay("The first beacon " + firstBeacon.toString() + " is about " + firstBeacon.getDistance() + " meters away.");
+                  String url = UrlBeaconUrlCompressor.uncompress(firstBeacon.getId1().toByteArray());
+                 logToDisplay("The first beacon " + url + " is about " +
+                    firstBeacon.getDistance() + " meter(s) away.");
               }
            }
-
         });
-
         try {
             beaconManager.startRangingBeaconsInRegion(new Region("myRangingUniqueId", null, null, null));
         } catch (RemoteException e) {   }

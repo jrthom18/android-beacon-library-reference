@@ -1,20 +1,34 @@
 package org.altbeacon.beaconreference;
 
+import android.Manifest;
 import android.app.Application;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.TaskStackBuilder;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.internal.DowngradeableSafeParcel;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
+
 import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
+import org.altbeacon.beacon.Identifier;
 import org.altbeacon.beacon.Region;
 import org.altbeacon.beacon.powersave.BackgroundPowerSaver;
 import org.altbeacon.beacon.startup.RegionBootstrap;
 import org.altbeacon.beacon.startup.BootstrapNotifier;
+import org.altbeacon.beacon.utils.UrlBeaconUrlCompressor;
 
 /**
  * Created by dyoung on 12/13/13.
@@ -26,6 +40,7 @@ public class BeaconReferenceApplication extends Application implements Bootstrap
     private boolean haveDetectedBeaconsSinceBoot = false;
     private MonitoringActivity monitoringActivity = null;
 
+    //LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
     public void onCreate() {
         super.onCreate();
@@ -42,16 +57,21 @@ public class BeaconReferenceApplication extends Application implements Bootstrap
         //beaconManager.getBeaconParsers().add(new BeaconParser().
         //        setBeaconLayout("m:2-3=beac,i:4-19,i:20-21,i:22-23,p:24-24,d:25-25"));
 
+        // Detect Eddystone URL beacons
+        beaconManager.getBeaconParsers().clear();
+        beaconManager.getBeaconParsers().add(new BeaconParser().
+                setBeaconLayout("s:0-1=feaa,m:2-2=10,p:3-3:-41,i:4-20v"));
+
+
         Log.d(TAG, "setting up background monitoring for beacons and power saving");
         // wake up the app when a beacon is seen
-        Region region = new Region("backgroundRegion",
-                null, null, null);
+        Region region = new Region("backgroundRegion", null, null, null);
         regionBootstrap = new RegionBootstrap(this, region);
 
         // simply constructing this class and holding a reference to it in your custom Application
         // class will automatically cause the BeaconLibrary to save battery whenever the application
         // is not visible.  This reduces bluetooth power usage by about 60%
-        backgroundPowerSaver = new BackgroundPowerSaver(this);
+        //backgroundPowerSaver = new BackgroundPowerSaver(this);
 
         // If you wish to test beacon detection in the Android Emulator, you can use code like this:
         // BeaconManager.setBeaconSimulator(new TimedBeaconSimulator() );
@@ -79,16 +99,52 @@ public class BeaconReferenceApplication extends Application implements Bootstrap
             if (monitoringActivity != null) {
                 // If the Monitoring Activity is visible, we log info about the beacons we have
                 // seen on its display
-                monitoringActivity.logToDisplay("I see a beacon again" );
+                monitoringActivity.logToDisplay("I see a beacon again");
             } else {
                 // If we have already seen beacons before, but the monitoring activity is not in
                 // the foreground, we send a notification to the user on subsequent detections.
                 Log.d(TAG, "Sending notification.");
-                sendNotification();
+
+                /*
+                    Grab URL of the beacon we just saw
+                 */
+                //String url = UrlBeaconUrlCompressor.uncompress(arg0.getId1().toByteArray());
+
+                /*
+                   Grab user location
+
+                LocationListener locationListener = new MyLocationListener();
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    return;
+                }
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
+                        5000, 10, locationListener);
+
+                double latitude = 999;
+                double longitude = 999;
+
+                while (latitude == 999 && longitude == 999) {
+                    latitude = ((MyLocationListener) locationListener).getLatitude();
+                    longitude = ((MyLocationListener) locationListener).getLongitude();
+                }
+                locationManager.removeUpdates(locationListener);
+                */
+                /*
+                   Send data points to cloud here?
+                   userID, url, latitude, longitude
+                 */
+                //sendNotification(url, 0, 0);
+                //sendNotification(url, latitude, longitude);
+                sendNotification("");
             }
         }
-
-
     }
 
     @Override
@@ -105,12 +161,15 @@ public class BeaconReferenceApplication extends Application implements Bootstrap
         }
     }
 
-    private void sendNotification() {
+    private void sendNotification(String url) {
+        Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(this)
                         .setContentTitle("Beacon Reference Application")
-                        .setContentText("An beacon is nearby.")
-                        .setSmallIcon(R.drawable.ic_launcher);
+                        .setContentText("Beacon '" + url + "' is nearby")
+                        .setSmallIcon(R.drawable.ic_launcher)
+                        .setVibrate(new long[] {0, 1000, 1000, 1000, 1000})
+                        .setSound(alarmSound);
 
         TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
         stackBuilder.addNextIntent(new Intent(this, MonitoringActivity.class));
@@ -120,6 +179,7 @@ public class BeaconReferenceApplication extends Application implements Bootstrap
                         PendingIntent.FLAG_UPDATE_CURRENT
                 );
         builder.setContentIntent(resultPendingIntent);
+
         NotificationManager notificationManager =
                 (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
         notificationManager.notify(1, builder.build());
