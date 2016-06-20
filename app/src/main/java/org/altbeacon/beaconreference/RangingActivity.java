@@ -1,33 +1,123 @@
 package org.altbeacon.beaconreference;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
+import android.Manifest;
 import android.app.Activity;
+import android.app.ListActivity;
+import android.app.LoaderManager;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.TaskStackBuilder;
+import android.content.Context;
+import android.content.CursorLoader;
+import android.content.Intent;
+import android.content.Loader;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.provider.ContactsContract;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.NotificationCompat;
+import android.app.LoaderManager;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v4.widget.SimpleCursorAdapter;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.ProgressBar;
 
 import org.altbeacon.beacon.AltBeacon;
 import org.altbeacon.beacon.Beacon;
 import org.altbeacon.beacon.BeaconConsumer;
 import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
-import org.altbeacon.beacon.MonitorNotifier;
 import org.altbeacon.beacon.RangeNotifier;
 import org.altbeacon.beacon.Region;
 import org.altbeacon.beacon.utils.UrlBeaconUrlCompressor;
 
-public class RangingActivity extends Activity implements BeaconConsumer {
+import javax.net.ssl.HttpsURLConnection;
+
+public class RangingActivity extends ListActivity implements BeaconConsumer,
+        LoaderManager.LoaderCallbacks<Cursor> {
+
     protected static final String TAG = "RangingActivity";
+    private static String url_create_product = "http://159.203.254.18/android/create_product.php";
     private BeaconManager beaconManager = BeaconManager.getInstanceForApplication(this);
+    private Collection<Beacon> uniqueBeacons = new ArrayList<>();
+    private Collection<Beacon> newestBeacons = new ArrayList<>();
+    private boolean newBeaconsFound = false;
+    private Map<String,Object> params = new LinkedHashMap<>();
+    private int inc = 1;
+
+    // This is the Adapter being used to display the list's data
+    SimpleCursorAdapter mAdapter;
+
+    // These are the Contacts rows that we will retrieve
+    static final String[] PROJECTION = new String[] {ContactsContract.Data._ID, ContactsContract.Data.DISPLAY_NAME};
+
+    // This is the select criteria
+    static final String SELECTION = "((" +
+            ContactsContract.Data.DISPLAY_NAME + " NOTNULL) AND (" +
+            ContactsContract.Data.DISPLAY_NAME + " != '' ))";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_ranging);
-
         beaconManager.bind(this);
+
+        // Create a progress bar to display while the list loads
+        ProgressBar progressBar = new ProgressBar(this);
+        progressBar.setLayoutParams(new DrawerLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        progressBar.setIndeterminate(true);
+        getListView().setEmptyView(progressBar);
+
+        // Must add the progress bar to the root of the layout
+        ViewGroup root = (ViewGroup) findViewById(android.R.id.content);
+        root.addView(progressBar);
+
+        // For the cursor adapter, specify which columns go into which views
+        String[] fromColumns = {ContactsContract.Data.DISPLAY_NAME};
+        int[] toViews = {android.R.id.text1}; // The TextView in simple_list_item_1
+
+        // Create an empty adapter we will use to display the loaded data.
+        // We pass null for the cursor, then update it in onLoadFinished()
+        mAdapter = new SimpleCursorAdapter(this,
+                android.R.layout.simple_list_item_1, null,
+                fromColumns, toViews, 0);
+        setListAdapter(mAdapter);
+
+        // Prepare the loader.  Either re-connect with an existing one,
+        // or start a new one.
+        getLoaderManager().initLoader(0, null, this);
     }
 
     @Override 
@@ -53,26 +143,202 @@ public class RangingActivity extends Activity implements BeaconConsumer {
         beaconManager.setRangeNotifier(new RangeNotifier() {
            @Override
            public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
-              if (beacons.size() > 0) {
-                 //EditText editText = (EditText)RangingActivity.this.findViewById(R.id.rangingText);
-                 Beacon firstBeacon = beacons.iterator().next();
-                  String url = UrlBeaconUrlCompressor.uncompress(firstBeacon.getId1().toByteArray());
-                 logToDisplay("The first beacon " + url + " is about " +
-                    firstBeacon.getDistance() + " meter(s) away.");
-              }
+               for (Beacon beacon: beacons) {
+                   // Assure this is an Eddystone-URL frame
+                   if (beacon.getServiceUuid() == 0xfeaa && beacon.getBeaconTypeCode() == 0x10) {
+                       if (!uniqueBeacons.contains(beacon)){
+                           uniqueBeacons.add(beacon);
+                           newestBeacons.add(beacon);
+                           newBeaconsFound = true;
+                       }
+                   }
+               }
+               /*
+                    This code will only send beacon data to database one time.
+                    If you walk in range of a beacon, out of range of that beacon, and then
+                    back in range of that same beacon later on, the database will only be updated
+                    for the initial contact with the beacon (assuming the app was not forced to quit
+                    and then restarted in that time period).
+                    We probably want to update the database every time the beacon is seen in the
+                    background?
+                */
+               if (newBeaconsFound){
+                   Location loc = locateUser();
+                   for (Beacon beacon: newestBeacons) {
+
+                       String url = UrlBeaconUrlCompressor.uncompress(beacon.getId1().toByteArray());
+                       //sendNotification("Beacon nearby: " + url);
+                       // Send beacon data to cloud
+                       // TODO: Pass Facebook ID into first data parameter
+
+                       List<Object> data = new ArrayList<>();
+                       data.add(1);
+                       data.add(url);
+                       data.add(loc.getLatitude());
+                       data.add(loc.getLongitude());
+                       data.add(System.currentTimeMillis()/1000); // Current timestamp in seconds
+                       data.add(beacon.getDistance());
+                       params.put("Beacon"+inc, data);
+                       inc++;
+                   }
+                   try {
+                       updateDatabase();
+                   } catch (IOException e) {
+                       e.printStackTrace();
+                   }
+                   newBeaconsFound = false;
+                   newestBeacons.clear();
+               }
+               // This will display all beacons found in the initial range scan, does not update
+               // distance estimates in real time on the UI
+               displayBeaconsFound(uniqueBeacons);
            }
         });
         try {
-            beaconManager.startRangingBeaconsInRegion(new Region("myRangingUniqueId", null, null, null));
+            beaconManager.startRangingBeaconsInRegion(new Region("myRangingUniqueId", null,
+                    null, null));
         } catch (RemoteException e) {   }
+    }
+
+    private void displayBeaconsFound(Collection<Beacon> beaconsFound) {
+        clearDisplayText();
+        for (Beacon beacon: beaconsFound) {
+            String url = UrlBeaconUrlCompressor.uncompress(beacon.getId1().toByteArray());
+            DecimalFormat df = new DecimalFormat();
+            df.setMaximumFractionDigits(4);
+            logToDisplay("Beacon with url " + url + " approximately " + df.format(beacon.getDistance())
+                    + " meter(s) away.");
+        }
+    }
+
+    private void updateDatabase() throws IOException {
+        URL postUrl = new URL(url_create_product);
+
+        /*params.put("id", id);
+        params.put("url", url);
+        params.put("latitude", latitude);
+        params.put("longitude", longitude);
+        params.put("timestamp", timestamp);
+        params.put("distance", distance);*/
+
+        StringBuilder postData = new StringBuilder();
+        for (Map.Entry<String,Object> param : params.entrySet()) {
+            if (postData.length() != 0) postData.append('&');
+            postData.append(URLEncoder.encode(param.getKey(), "UTF-8"));
+            postData.append('=');
+            postData.append(URLEncoder.encode(String.valueOf(param.getValue()), "UTF-8"));
+        }
+        byte[] postDataBytes = postData.toString().getBytes("UTF-8");
+
+        HttpURLConnection conn = (HttpURLConnection)postUrl.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+        conn.setRequestProperty("Content-Length", String.valueOf(postDataBytes.length));
+        conn.setDoOutput(true);
+        conn.getOutputStream().write(postDataBytes);
+
+        Reader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+
+        for (int c; (c = in.read()) >= 0;) {
+            System.out.print((char) c);
+        }
+
+        // Clear params array?
+        params.clear();
+    }
+
+
+    private void sendNotification(String contentText) {
+        Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        NotificationCompat.Builder builder =
+                new NotificationCompat.Builder(this)
+                        .setContentTitle("Beacon Reference Application")
+                        .setContentText(contentText)
+                        .setSmallIcon(R.drawable.ic_launcher)
+                        .setVibrate(new long[] {0, 1000, 1000, 1000, 1000})
+                        .setSound(alarmSound);
+
+        TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
+        stackBuilder.addNextIntent(new Intent(this, MonitoringActivity.class));
+        PendingIntent resultPendingIntent =
+                stackBuilder.getPendingIntent(
+                        0,
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                );
+        builder.setContentIntent(resultPendingIntent);
+
+        NotificationManager notificationManager =
+                (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationManager.notify(1, builder.build());
+    }
+
+    private Location locateUser() {
+        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        LocationListener locationListener = new MyLocationListener();
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return null;
+        }
+        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,
+                0, 0, locationListener);
+
+        Location currentLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+        locationManager.removeUpdates(locationListener);
+        return currentLocation;
     }
 
     private void logToDisplay(final String line) {
         runOnUiThread(new Runnable() {
             public void run() {
                 EditText editText = (EditText)RangingActivity.this.findViewById(R.id.rangingText);
-                editText.append(line+"\n");
+                editText.append(line);
             }
         });
+    }
+
+    private void clearDisplayText() {
+        runOnUiThread(new Runnable() {
+            public void run() {
+                EditText editText = (EditText)RangingActivity.this.findViewById(R.id.rangingText);
+                editText.setText("");
+            }
+        });
+    }
+
+    // Called when a new Loader needs to be created
+    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+        // Now create and return a CursorLoader that will take care of
+        // creating a Cursor for the data being displayed.
+        return new CursorLoader(this, ContactsContract.Data.CONTENT_URI,
+                PROJECTION, SELECTION, null, null);
+    }
+
+    // Called when a previously created loader has finished loading
+    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+        // Swap the new cursor in.  (The framework will take care of closing the
+        // old cursor once we return.)
+        mAdapter.swapCursor(data);
+    }
+
+    // Called when a previously created loader is reset, making the data unavailable
+    public void onLoaderReset(Loader<Cursor> loader) {
+        // This is called when the last Cursor provided to onLoadFinished()
+        // above is about to be closed.  We need to make sure we are no
+        // longer using it.
+        mAdapter.swapCursor(null);
+    }
+
+    @Override
+    public void onListItemClick(ListView l, View v, int position, long id) {
+        // Do something when a list item is clicked
     }
 }

@@ -23,4 +23,5 @@ dependencies {
     //compile project(':android-beacon-library')
     compile 'org.altbeacon:android-beacon-library:2+'
     compile 'com.google.android.gms:play-services:8.4.0'
+    compile 'com.facebook.android:facebook-android-sdk:[4,5)'
 }

@@ -32,10 +32,8 @@ class MyLocationListener implements LocationListener {
 
     @Override
     public void onLocationChanged(Location loc) {
-        if (loc.getAccuracy() < 100.00) {
             setLatitude(loc.getLatitude());
             setLongitude(loc.getLongitude());
-        }
     }
 
     @Override
