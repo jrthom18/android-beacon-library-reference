@@ -9,6 +9,8 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.text.DecimalFormat;
@@ -37,7 +39,9 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.RemoteException;
 import android.provider.ContactsContract;
 import android.support.v4.app.ActivityCompat;
@@ -49,9 +53,16 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
+
+import com.ibm.watson.developer_cloud.android.speech_to_text.v1.ISpeechDelegate;
+import com.ibm.watson.developer_cloud.android.speech_to_text.v1.SpeechToText;
+import com.ibm.watson.developer_cloud.android.speech_to_text.v1.dto.SpeechConfiguration;
+import com.ibm.watson.developer_cloud.android.text_to_speech.v1.TextToSpeech;
 
 import org.altbeacon.beacon.AltBeacon;
 import org.altbeacon.beacon.Beacon;
@@ -61,10 +72,13 @@ import org.altbeacon.beacon.BeaconParser;
 import org.altbeacon.beacon.RangeNotifier;
 import org.altbeacon.beacon.Region;
 import org.altbeacon.beacon.utils.UrlBeaconUrlCompressor;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import javax.net.ssl.HttpsURLConnection;
 
-public class RangingActivity extends ListActivity implements BeaconConsumer,
+public class RangingActivity extends ListActivity implements BeaconConsumer, ISpeechDelegate,
         LoaderManager.LoaderCallbacks<Cursor> {
 
     protected static final String TAG = "RangingActivity";
@@ -74,7 +88,14 @@ public class RangingActivity extends ListActivity implements BeaconConsumer,
     private Collection<Beacon> newestBeacons = new ArrayList<>();
     private boolean newBeaconsFound = false;
     private Map<String,Object> params = new LinkedHashMap<>();
+    private Handler mHandler = null;
     private int inc = 1;
+
+    private enum ConnectionState {
+        IDLE, CONNECTING, CONNECTED
+    }
+
+    ConnectionState mState = ConnectionState.IDLE;
 
     // This is the Adapter being used to display the list's data
     SimpleCursorAdapter mAdapter;
@@ -91,7 +112,43 @@ public class RangingActivity extends ListActivity implements BeaconConsumer,
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_ranging);
+        mHandler = new Handler();
         beaconManager.bind(this);
+
+        try {
+            if (initSTT() == false) {
+                logToDisplay("Error: no authentication credentials/token available, please enter your authentication information");
+            }
+            else{
+                logToDisplay("Valid auth");
+            }
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+        }
+
+        Button buttonRecord = (Button)findViewById(R.id.buttonRecord);
+        buttonRecord.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View arg0) {
+                if (mState == ConnectionState.IDLE) {
+                    mState = ConnectionState.CONNECTING;
+                    // start recognition
+                    new AsyncTask<Void, Void, Void>(){
+                        @Override
+                        protected Void doInBackground(Void... none) {
+                            SpeechToText.sharedInstance().recognize();
+                            return null;
+                        }
+                    }.execute();
+                    setButtonLabel(R.id.buttonRecord, "Connecting...");
+                }
+                else if (mState == ConnectionState.CONNECTED) {
+                    mState = ConnectionState.IDLE;
+                    SpeechToText.sharedInstance().stopRecognition();
+                }
+            }
+        });
 
         // Create a progress bar to display while the list loads
         ProgressBar progressBar = new ProgressBar(this);
@@ -140,6 +197,7 @@ public class RangingActivity extends ListActivity implements BeaconConsumer,
 
     @Override
     public void onBeaconServiceConnect() {
+
         beaconManager.setRangeNotifier(new RangeNotifier() {
            @Override
            public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
@@ -181,17 +239,17 @@ public class RangingActivity extends ListActivity implements BeaconConsumer,
                        params.put("Beacon"+inc, data);
                        inc++;
                    }
-                   try {
+                   /*try {
                        updateDatabase();
                    } catch (IOException e) {
                        e.printStackTrace();
-                   }
+                   }*/
                    newBeaconsFound = false;
                    newestBeacons.clear();
                }
                // This will display all beacons found in the initial range scan, does not update
                // distance estimates in real time on the UI
-               displayBeaconsFound(uniqueBeacons);
+               //displayBeaconsFound(uniqueBeacons);
            }
         });
         try {
@@ -300,7 +358,7 @@ public class RangingActivity extends ListActivity implements BeaconConsumer,
         runOnUiThread(new Runnable() {
             public void run() {
                 EditText editText = (EditText)RangingActivity.this.findViewById(R.id.rangingText);
-                editText.append(line);
+                editText.append(line+"\n\n");
             }
         });
     }
@@ -340,5 +398,100 @@ public class RangingActivity extends ListActivity implements BeaconConsumer,
     @Override
     public void onListItemClick(ListView l, View v, int position, long id) {
         // Do something when a list item is clicked
+    }
+
+    public void onOpen() {
+        logToDisplay("successfully connected to the STT service");
+        setButtonLabel(R.id.buttonRecord, "Stop recording");
+        mState = ConnectionState.CONNECTED;
+    }
+
+    public void onError(String error) {
+        logToDisplay(error);
+        mState = ConnectionState.IDLE;
+    }
+
+    public void onClose(int code, String reason, boolean remote) {
+        logToDisplay("connection closed");
+        setButtonLabel(R.id.buttonRecord, "Record");
+        mState = ConnectionState.IDLE;
+    }
+
+    public void onMessage(String message) {
+
+        Log.d(TAG, "onMessage, message: " + message);
+        try {
+            JSONObject jObj = new JSONObject(message);
+            // state message
+            if(jObj.has("state")) {
+                Log.d(TAG, "Status message: " + jObj.getString("state"));
+            }
+            // results message
+            else if (jObj.has("results")) {
+                //if has result
+                Log.d(TAG, "Results message: ");
+                JSONArray jArr = jObj.getJSONArray("results");
+                for (int i=0; i < jArr.length(); i++) {
+                    JSONObject obj = jArr.getJSONObject(i);
+                    JSONArray jArr1 = obj.getJSONArray("alternatives");
+                    String str = jArr1.getJSONObject(0).getString("transcript");
+                    logToDisplay(str);
+                    break;
+                }
+            } else {
+                logToDisplay("unexpected data coming from stt server: \n" + message);
+            }
+
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing JSON");
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void onAmplitude(double amplitude, double volume) {
+
+    }
+
+    // initialize the connection to the Watson STT service
+    private boolean initSTT() throws URISyntaxException {
+
+        // DISCLAIMER: please enter your credentials or token factory in the lines below
+        String username = "23e41665-a035-41fd-85c9-806beab12796";
+        String password = "8FTmGDEMNRfo";
+
+        String tokenFactoryURL = getString(R.string.STTdefaultTokenFactory);
+        String serviceURL = "wss://stream.watsonplatform.net/speech-to-text/api";
+
+        SpeechConfiguration sConfig = new SpeechConfiguration(SpeechConfiguration.AUDIO_FORMAT_OGGOPUS);
+        //SpeechConfiguration sConfig = new SpeechConfiguration(SpeechConfiguration.AUDIO_FORMAT_DEFAULT);
+
+        SpeechToText.sharedInstance().initWithContext(new URI("wss://stream.watsonplatform.net/speech-to-text/api"),
+                this.getApplicationContext(), sConfig);
+
+
+        SpeechToText.sharedInstance().setCredentials(username, password);
+        SpeechToText.sharedInstance().setModel("en-US_BroadbandModel");
+        SpeechToText.sharedInstance().setDelegate(this);
+
+        return true;
+    }
+
+    /**
+     * Change the button's label
+     */
+    public void setButtonLabel(final int buttonId, final String label) {
+        final Runnable runnableUi = new Runnable(){
+            @Override
+            public void run() {
+                Button button = (Button)findViewById(buttonId);
+                button.setText(label);
+            }
+        };
+        new Thread(){
+            public void run(){
+                mHandler.post(runnableUi);
+            }
+        }.start();
     }
 }

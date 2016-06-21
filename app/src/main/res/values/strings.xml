@@ -3,4 +3,9 @@
     <string name="app_name">BeaconReference</string>
     <string name="facebook_app_id">483034441895938</string>
 
+    <!-- STT default credentials --> 
+    <string name="STTdefaultUsername">23e41665-a035-41fd-85c9-806beab12796</string>
+     <string name="STTdefaultPassword">8FTmGDEMNRfo</string>
+     <string name="STTdefaultTokenFactory">https://stream.watsonplatform.net/speech-to-text/api</string> 
+
 </resources>

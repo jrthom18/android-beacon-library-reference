@@ -1,3 +1,3 @@
 //include ':android-beacon-library'
-include ':app'
+include ':app', ':speech-android-wrapper'
 
