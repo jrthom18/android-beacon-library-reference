@@ -9,6 +9,7 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -21,12 +22,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import android.Manifest;
 import android.app.Activity;
+import android.app.DownloadManager;
 import android.app.ListActivity;
 import android.app.LoaderManager;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.ProgressDialog;
 import android.app.TaskStackBuilder;
 import android.content.Context;
 import android.content.CursorLoader;
@@ -53,10 +60,13 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.SimpleAdapter;
 import android.widget.Spinner;
 
 import com.ibm.watson.developer_cloud.android.speech_to_text.v1.ISpeechDelegate;
@@ -83,30 +93,40 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
 
     protected static final String TAG = "RangingActivity";
     private static String url_create_product = "http://159.203.254.18/android/create_product.php";
+    private static String url_voice_search = "http://159.203.254.18/android/voice_search.php";
     private BeaconManager beaconManager = BeaconManager.getInstanceForApplication(this);
     private Collection<Beacon> uniqueBeacons = new ArrayList<>();
     private Collection<Beacon> newestBeacons = new ArrayList<>();
     private boolean newBeaconsFound = false;
     private Map<String,Object> params = new LinkedHashMap<>();
     private Handler mHandler = null;
+    private String searchText = "";
+    private ProgressDialog pDialog;
+    private ArrayList<DisplayBeacon> displayBeaconArray = new ArrayList<DisplayBeacon>() {};
+    private ArrayAdapter<DisplayBeacon> adapter;
+
     private int inc = 1;
+
+    @Override
+    public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
+        return null;
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> loader, Cursor cursor) {
+
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> loader) {
+
+    }
 
     private enum ConnectionState {
         IDLE, CONNECTING, CONNECTED
     }
 
     ConnectionState mState = ConnectionState.IDLE;
-
-    // This is the Adapter being used to display the list's data
-    SimpleCursorAdapter mAdapter;
-
-    // These are the Contacts rows that we will retrieve
-    static final String[] PROJECTION = new String[] {ContactsContract.Data._ID, ContactsContract.Data.DISPLAY_NAME};
-
-    // This is the select criteria
-    static final String SELECTION = "((" +
-            ContactsContract.Data.DISPLAY_NAME + " NOTNULL) AND (" +
-            ContactsContract.Data.DISPLAY_NAME + " != '' ))";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,12 +135,17 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
         mHandler = new Handler();
         beaconManager.bind(this);
 
+        adapter = new ArrayAdapter<DisplayBeacon>(this,
+                android.R.layout.simple_list_item_1, android.R.id.text1, displayBeaconArray);
+        ListView listView = (ListView) findViewById(android.R.id.list);
+        listView.setAdapter(adapter);
+
         try {
             if (initSTT() == false) {
-                logToDisplay("Error: no authentication credentials/token available, please enter your authentication information");
+                //logToDisplay("Error: no authentication credentials/token available, please enter your authentication information");
             }
             else{
-                logToDisplay("Valid auth");
+                //logToDisplay("Valid auth");
             }
         } catch (URISyntaxException e) {
             e.printStackTrace();
@@ -146,35 +171,35 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                 else if (mState == ConnectionState.CONNECTED) {
                     mState = ConnectionState.IDLE;
                     SpeechToText.sharedInstance().stopRecognition();
+                    // TODO: Send text to cloud to initiate search
+                    new AsyncTask<Void, Void, Void>(){
+                        @Override
+                        protected Void doInBackground(Void... none) {
+                            try {
+                                makeVoiceSearch(searchText);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                            return null;
+                        }
+                    }.execute();
                 }
             }
         });
+    }
 
-        // Create a progress bar to display while the list loads
-        ProgressBar progressBar = new ProgressBar(this);
-        progressBar.setLayoutParams(new DrawerLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
-        progressBar.setIndeterminate(true);
-        getListView().setEmptyView(progressBar);
+    private void makeVoiceSearch(String searchText) throws IOException {
+        ArrayList<DisplayBeacon> matchingBeacons = new ArrayList<>();
 
-        // Must add the progress bar to the root of the layout
-        ViewGroup root = (ViewGroup) findViewById(android.R.id.content);
-        root.addView(progressBar);
-
-        // For the cursor adapter, specify which columns go into which views
-        String[] fromColumns = {ContactsContract.Data.DISPLAY_NAME};
-        int[] toViews = {android.R.id.text1}; // The TextView in simple_list_item_1
-
-        // Create an empty adapter we will use to display the loaded data.
-        // We pass null for the cursor, then update it in onLoadFinished()
-        mAdapter = new SimpleCursorAdapter(this,
-                android.R.layout.simple_list_item_1, null,
-                fromColumns, toViews, 0);
-        setListAdapter(mAdapter);
-
-        // Prepare the loader.  Either re-connect with an existing one,
-        // or start a new one.
-        getLoaderManager().initLoader(0, null, this);
+        for(DisplayBeacon beacon : displayBeaconArray){
+            if (beacon.getTitle().toLowerCase().contains(searchText.toLowerCase()) ||
+                    beacon.getDescription().toLowerCase().contains(searchText.toLowerCase())){
+                matchingBeacons.add(beacon);
+            }
+        }
+        displayBeaconArray.clear();
+        displayBeaconArray.addAll(matchingBeacons);
+        displayBeaconsFound();
     }
 
     @Override 
@@ -239,17 +264,17 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                        params.put("Beacon"+inc, data);
                        inc++;
                    }
-                   /*try {
+                   try {
                        updateDatabase();
                    } catch (IOException e) {
                        e.printStackTrace();
-                   }*/
+                   }
                    newBeaconsFound = false;
                    newestBeacons.clear();
                }
                // This will display all beacons found in the initial range scan, does not update
                // distance estimates in real time on the UI
-               //displayBeaconsFound(uniqueBeacons);
+               displayBeaconsFound();
            }
         });
         try {
@@ -258,26 +283,17 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
         } catch (RemoteException e) {   }
     }
 
-    private void displayBeaconsFound(Collection<Beacon> beaconsFound) {
-        clearDisplayText();
-        for (Beacon beacon: beaconsFound) {
-            String url = UrlBeaconUrlCompressor.uncompress(beacon.getId1().toByteArray());
-            DecimalFormat df = new DecimalFormat();
-            df.setMaximumFractionDigits(4);
-            logToDisplay("Beacon with url " + url + " approximately " + df.format(beacon.getDistance())
-                    + " meter(s) away.");
-        }
+    private void displayBeaconsFound() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                adapter.notifyDataSetChanged();
+            }
+        });
     }
 
     private void updateDatabase() throws IOException {
         URL postUrl = new URL(url_create_product);
-
-        /*params.put("id", id);
-        params.put("url", url);
-        params.put("latitude", latitude);
-        params.put("longitude", longitude);
-        params.put("timestamp", timestamp);
-        params.put("distance", distance);*/
 
         StringBuilder postData = new StringBuilder();
         for (Map.Entry<String,Object> param : params.entrySet()) {
@@ -295,13 +311,19 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
         conn.setDoOutput(true);
         conn.getOutputStream().write(postDataBytes);
 
-        Reader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+        //Reader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
 
-        for (int c; (c = in.read()) >= 0;) {
+        // TODO: Read in JSON
+        JSONReader jsonReader = new JSONReader();
+        displayBeaconArray.clear();
+        displayBeaconArray.addAll(jsonReader.readJsonStream(conn.getInputStream()));
+        //displayBeaconArray = jsonReader.readJsonStream(conn.getInputStream());
+
+        /*for (int c; (c = in.read()) >= 0;) {
             System.out.print((char) c);
-        }
+            char ch = ((char) c);
+        }*/
 
-        // Clear params array?
         params.clear();
     }
 
@@ -358,7 +380,7 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
         runOnUiThread(new Runnable() {
             public void run() {
                 EditText editText = (EditText)RangingActivity.this.findViewById(R.id.rangingText);
-                editText.append(line+"\n\n");
+                editText.append(line+"\n");
             }
         });
     }
@@ -372,48 +394,28 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
         });
     }
 
-    // Called when a new Loader needs to be created
-    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-        // Now create and return a CursorLoader that will take care of
-        // creating a Cursor for the data being displayed.
-        return new CursorLoader(this, ContactsContract.Data.CONTENT_URI,
-                PROJECTION, SELECTION, null, null);
-    }
-
-    // Called when a previously created loader has finished loading
-    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
-        // Swap the new cursor in.  (The framework will take care of closing the
-        // old cursor once we return.)
-        mAdapter.swapCursor(data);
-    }
-
-    // Called when a previously created loader is reset, making the data unavailable
-    public void onLoaderReset(Loader<Cursor> loader) {
-        // This is called when the last Cursor provided to onLoadFinished()
-        // above is about to be closed.  We need to make sure we are no
-        // longer using it.
-        mAdapter.swapCursor(null);
-    }
-
     @Override
     public void onListItemClick(ListView l, View v, int position, long id) {
-        // Do something when a list item is clicked
+        DisplayBeacon item = displayBeaconArray.get(position);
+        String url = item.getUrl();
+        Uri uri = Uri.parse(url);
+        startActivity(new Intent(Intent.ACTION_VIEW, uri));
     }
 
     public void onOpen() {
-        logToDisplay("successfully connected to the STT service");
-        setButtonLabel(R.id.buttonRecord, "Stop recording");
+        logToDisplay("Speak now...");
+        setButtonLabel(R.id.buttonRecord, "GO");
         mState = ConnectionState.CONNECTED;
     }
 
     public void onError(String error) {
-        logToDisplay(error);
+        //logToDisplay(error);
         mState = ConnectionState.IDLE;
     }
 
     public void onClose(int code, String reason, boolean remote) {
-        logToDisplay("connection closed");
-        setButtonLabel(R.id.buttonRecord, "Record");
+        //logToDisplay("connection closed");
+        setButtonLabel(R.id.buttonRecord, "VOICE SEARCH");
         mState = ConnectionState.IDLE;
     }
 
@@ -435,7 +437,9 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                     JSONObject obj = jArr.getJSONObject(i);
                     JSONArray jArr1 = obj.getJSONArray("alternatives");
                     String str = jArr1.getJSONObject(0).getString("transcript");
+                    clearDisplayText();
                     logToDisplay(str);
+                    searchText = str;
                     break;
                 }
             } else {
@@ -494,4 +498,6 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
             }
         }.start();
     }
+
+
 }

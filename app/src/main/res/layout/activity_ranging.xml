@@ -25,7 +25,7 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Voice Search"
+        android:text="VOICE SEARCH"
         android:id="@+id/buttonRecord"
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true" />
