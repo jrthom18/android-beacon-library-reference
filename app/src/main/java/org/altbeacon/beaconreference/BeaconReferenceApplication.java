@@ -70,6 +70,14 @@ public class BeaconReferenceApplication extends Application implements Bootstrap
         beaconManager.getBeaconParsers().add(new BeaconParser().
                 setBeaconLayout("s:0-1=feaa,m:2-2=10,p:3-3:-41,i:4-20v"));
 
+        try {
+            beaconManager.setForegroundScanPeriod(2000l);
+            beaconManager.updateScanPeriods();
+        }
+        catch (RemoteException e) {
+            Log.e(TAG, "Cannot talk to service");
+        }
+
 
         Log.d(TAG, "setting up background monitoring region for beacons");
         // wake up the app when a beacon is seen
@@ -133,17 +141,12 @@ public class BeaconReferenceApplication extends Application implements Bootstrap
 
     @Override
     public void didExitRegion(Region region) {
-        if (monitoringActivity != null) {
-            monitoringActivity.logToDisplay("I no longer see a beacon.");
-        }
+
     }
 
     @Override
     public void didDetermineStateForRegion(int state, Region region) {
-        if (monitoringActivity != null) {
-            monitoringActivity.logToDisplay("I have just switched from seeing/not seeing beacons: "
-                    + state);
-        }
+
     }
 
     public void setMonitoringActivity(MonitoringActivity activity) {

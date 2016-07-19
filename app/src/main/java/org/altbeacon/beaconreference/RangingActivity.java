@@ -60,6 +60,7 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -68,6 +69,7 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.SimpleAdapter;
 import android.widget.Spinner;
+import android.widget.TextView;
 
 import com.ibm.watson.developer_cloud.android.speech_to_text.v1.ISpeechDelegate;
 import com.ibm.watson.developer_cloud.android.speech_to_text.v1.SpeechToText;
@@ -93,7 +95,6 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
 
     protected static final String TAG = "RangingActivity";
     private static String url_create_product = "http://159.203.254.18/android/create_product.php";
-    private static String url_voice_search = "http://159.203.254.18/android/voice_search.php";
     private BeaconManager beaconManager = BeaconManager.getInstanceForApplication(this);
     private Collection<Beacon> uniqueBeacons = new ArrayList<>();
     private Collection<Beacon> newestBeacons = new ArrayList<>();
@@ -101,10 +102,9 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
     private Map<String,Object> params = new LinkedHashMap<>();
     private Handler mHandler = null;
     private String searchText = "";
-    private ProgressDialog pDialog;
     private ArrayList<DisplayBeacon> displayBeaconArray = new ArrayList<DisplayBeacon>() {};
     private ArrayAdapter<DisplayBeacon> adapter;
-
+    private ProgressDialog progDialog;
     private int inc = 1;
 
     @Override
@@ -131,7 +131,16 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         setContentView(R.layout.activity_ranging);
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                setProgressBarIndeterminateVisibility(true);
+            }
+        });
+
         mHandler = new Handler();
         beaconManager.bind(this);
 
@@ -272,8 +281,13 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                    newBeaconsFound = false;
                    newestBeacons.clear();
                }
-               // This will display all beacons found in the initial range scan, does not update
-               // distance estimates in real time on the UI
+
+               runOnUiThread(new Runnable() {
+                   @Override
+                   public void run() {
+                       setProgressBarIndeterminateVisibility(false);
+                   }
+               });
                displayBeaconsFound();
            }
         });
@@ -379,8 +393,8 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
     private void logToDisplay(final String line) {
         runOnUiThread(new Runnable() {
             public void run() {
-                EditText editText = (EditText)RangingActivity.this.findViewById(R.id.rangingText);
-                editText.append(line+"\n");
+                TextView editText = (TextView)RangingActivity.this.findViewById(R.id.textView);
+                editText.setText(line);
             }
         });
     }
@@ -388,7 +402,7 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
     private void clearDisplayText() {
         runOnUiThread(new Runnable() {
             public void run() {
-                EditText editText = (EditText)RangingActivity.this.findViewById(R.id.rangingText);
+                TextView editText = (TextView)RangingActivity.this.findViewById(R.id.textView);
                 editText.setText("");
             }
         });
@@ -403,8 +417,8 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
     }
 
     public void onOpen() {
-        logToDisplay("Speak now...");
-        setButtonLabel(R.id.buttonRecord, "GO");
+        logToDisplay("speak now...");
+        setButtonLabel(R.id.buttonRecord, "Go");
         mState = ConnectionState.CONNECTED;
     }
 
@@ -415,7 +429,7 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
 
     public void onClose(int code, String reason, boolean remote) {
         //logToDisplay("connection closed");
-        setButtonLabel(R.id.buttonRecord, "VOICE SEARCH");
+        setButtonLabel(R.id.buttonRecord, "Search");
         mState = ConnectionState.IDLE;
     }
 

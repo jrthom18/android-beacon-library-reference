@@ -76,7 +76,6 @@ public class MonitoringActivity extends Activity  {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_monitoring);
 		verifyBluetooth();
-		logToDisplay("Application just launched");
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			// Android M Permission check
@@ -251,16 +250,6 @@ public class MonitoringActivity extends Activity  {
 
 		}
 
-	}
-
-	public void logToDisplay(final String line) {
-		runOnUiThread(new Runnable() {
-			public void run() {
-				EditText editText = (EditText)MonitoringActivity.this
-						.findViewById(R.id.monitoringText);
-				editText.append(line+"\n");
-			}
-		});
 	}
 
 }
