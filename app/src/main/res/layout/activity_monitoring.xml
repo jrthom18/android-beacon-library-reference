@@ -12,7 +12,9 @@
         android:text="Scan"
         android:layout_centerVertical="true"
         android:layout_centerHorizontal="true"
-        style="?android:attr/borderlessButtonStyle"/>
+        style="?android:attr/borderlessButtonStyle"
+        android:textSize="20dp"
+        android:textColor="@android:color/holo_blue_dark" />
 
     <com.facebook.login.widget.LoginButton
         android:id="@+id/login_button"
