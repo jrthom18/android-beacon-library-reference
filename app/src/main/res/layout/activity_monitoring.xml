@@ -10,11 +10,11 @@
         android:layout_height="wrap_content"
         android:onClick="onRangingClicked"
         android:text="Scan"
-        android:layout_centerVertical="true"
-        android:layout_centerHorizontal="true"
         style="?android:attr/borderlessButtonStyle"
         android:textSize="20dp"
-        android:textColor="@android:color/holo_blue_dark" />
+        android:textColor="@android:color/holo_blue_dark"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true" />
 
     <com.facebook.login.widget.LoginButton
         android:id="@+id/login_button"
@@ -29,5 +29,83 @@
         android:layout_alignParentTop="true"
         android:layout_alignParentEnd="true"
         android:layout_marginTop="10dp" />
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@+id/login_button"
+        android:layout_marginTop="43dp"
+        android:layout_alignParentStart="true"
+        android:layout_above="@+id/Button01">
+
+        <Spinner
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/spinner"
+            android:layout_gravity="center_horizontal"
+            android:entries="@array/brands" />
+
+        <Spinner
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/spinner2"
+            android:entries="@array/products" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="Exchange data with REI?"
+            android:id="@+id/textView3"
+            android:paddingLeft="4dp" />
+
+        <CheckBox
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Facebook Feed - 250 Reward Points"
+            android:id="@+id/checkBox1" />
+
+        <CheckBox
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Search History - 500 Reward Points"
+            android:id="@+id/checkBox2" />
+
+        <CheckBox
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Purchase History - 750 Reward Points"
+            android:id="@+id/checkBox3" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/buttonSubmit"
+            android:text="Submit"
+            style="?android:attr/borderlessButtonStyle"
+            android:textColor="@android:color/holo_blue_dark"
+            android:paddingLeft="4dp" />
+    </LinearLayout>
+
+    <ImageView
+        android:layout_width="33dp"
+        android:layout_height="33dp"
+        android:id="@+id/imageView"
+        android:src="@drawable/location_icon"
+        android:layout_below="@+id/login_button"
+        android:layout_alignStart="@+id/login_button"
+        android:paddingTop="4dp"
+        android:paddingBottom="2dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="REI"
+        android:id="@+id/textView2"
+        android:layout_gravity="center_horizontal"
+        android:layout_alignBottom="@+id/imageView"
+        android:layout_toEndOf="@+id/imageView" />
 
 </RelativeLayout>

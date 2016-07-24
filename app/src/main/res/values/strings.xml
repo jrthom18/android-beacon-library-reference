@@ -8,4 +8,17 @@
      <string name="STTdefaultPassword">8FTmGDEMNRfo</string>
      <string name="STTdefaultTokenFactory">https://stream.watsonplatform.net/speech-to-text/api</string> 
 
+    <string-array name="products">
+        <item>Favorite product...</item>
+        <item>Hiking boots</item>
+        <item>Jackets</item>
+        <item>Camping equipment</item>
+    </string-array>
+    <string-array name="brands">
+        <item>Favorite brand...</item>
+        <item>Salomon</item>
+        <item>North Face</item>
+        <item>Patagonia</item>
+    </string-array>
+
 </resources>

@@ -17,7 +17,11 @@ import android.support.v4.content.ContextCompat;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.facebook.AccessToken;
@@ -25,6 +29,9 @@ import com.facebook.AccessTokenTracker;
 import com.facebook.CallbackManager;
 import com.facebook.FacebookCallback;
 import com.facebook.FacebookSdk;
+import com.facebook.GraphRequest;
+import com.facebook.GraphResponse;
+import com.facebook.HttpMethod;
 import com.facebook.Profile;
 import com.facebook.ProfileTracker;
 import com.facebook.login.LoginResult;
@@ -36,9 +43,13 @@ import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
 import org.altbeacon.beacon.MonitorNotifier;
 import org.altbeacon.beacon.Region;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
 /**
  *
@@ -129,13 +140,9 @@ public class MonitoringActivity extends Activity  {
         profileTracker = new ProfileTracker() {
             @Override
             protected void onCurrentProfileChanged(Profile oldProfile, Profile newProfile) {
-                // TODO: SEND PROFILE DATA TO CLOUD, UPDATE USER ID FOR USE IN RangingActivity.java
                 Profile profile = newProfile;
-
             }
         };
-        accessTokenTracker.startTracking();
-        profileTracker.startTracking();
 
         LoginButton loginButton = (LoginButton)findViewById(R.id.login_button);
 
@@ -145,7 +152,9 @@ public class MonitoringActivity extends Activity  {
                 AccessToken accessToken = loginResult.getAccessToken();
                 //Profile profile = Profile.getCurrentProfile();
                 //nextActivity(profile);
-                Toast.makeText(getApplicationContext(), "Logging in...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), "Processing...", Toast.LENGTH_SHORT).show();
+				getUserFeed();
+				getUserLikes();
             }
 
             @Override
@@ -157,11 +166,78 @@ public class MonitoringActivity extends Activity  {
             }
         };
 
-        loginButton.setReadPermissions("user_friends");
+        loginButton.setReadPermissions(Arrays.asList("user_likes","user_posts"));
         loginButton.registerCallback(callbackManager, callback);
+
+		// Clear check boxes when Submit is pressed, display reward points awarded, and clear UI
+		final Spinner spinner = (Spinner) findViewById(R.id.spinner);
+		final Spinner spinner2 = (Spinner) findViewById(R.id.spinner2);
+		final TextView textView3 = (TextView) findViewById(R.id.textView3);
+		final Button buttonSubmit = (Button) findViewById(R.id.buttonSubmit);
+		final CheckBox checkBox1 = (CheckBox) findViewById(R.id.checkBox1);
+		final CheckBox checkBox2 = (CheckBox) findViewById(R.id.checkBox2);
+		final CheckBox checkBox3 = (CheckBox) findViewById(R.id.checkBox3);
+
+		buttonSubmit.setOnClickListener(new View.OnClickListener() {
+			int rewardPoints = 0;
+			@Override
+			public void onClick(View arg0) {
+				if (checkBox1.isChecked()) {
+					rewardPoints += 250;
+					checkBox1.setChecked(false);
+				}
+				if (checkBox2.isChecked()) {
+					rewardPoints += 500;
+					checkBox2.setChecked(false);
+				}
+				if (checkBox3.isChecked()) {
+					rewardPoints += 750;
+					checkBox3.setChecked(false);
+				}
+				String message = "Thanks! You've earned " + rewardPoints +
+						" points towards your REI loyalty account!";
+				Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
+				checkBox1.setVisibility(View.INVISIBLE);
+				checkBox2.setVisibility(View.INVISIBLE);
+				checkBox3.setVisibility(View.INVISIBLE);
+				buttonSubmit.setVisibility(View.INVISIBLE);
+				textView3.setVisibility(View.INVISIBLE);
+				spinner.setVisibility(View.INVISIBLE);
+				spinner2.setVisibility(View.INVISIBLE);
+			}
+		});
 	}
 
-    @Override
+	private void getUserFeed() {
+		new GraphRequest(
+				AccessToken.getCurrentAccessToken(),
+				"/me/feed",
+				null,
+				HttpMethod.GET,
+				new GraphRequest.Callback() {
+					public void onCompleted(GraphResponse response) {
+            			// TODO: Send user feed data to cloud here?
+
+					}
+				}
+		).executeAsync();
+	}
+
+	private void getUserLikes() {
+		new GraphRequest(
+				AccessToken.getCurrentAccessToken(),
+				"/me/likes",
+				null,
+				HttpMethod.GET,
+				new GraphRequest.Callback() {
+					public void onCompleted(GraphResponse response) {
+						// TODO: Send user likes data to cloud here?
+					}
+				}
+		).executeAsync();
+	}
+
+	@Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         // if you don't add following block,

@@ -63,6 +63,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ListAdapter;
 import android.widget.ListView;
@@ -70,6 +71,7 @@ import android.widget.ProgressBar;
 import android.widget.SimpleAdapter;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.ibm.watson.developer_cloud.android.speech_to_text.v1.ISpeechDelegate;
 import com.ibm.watson.developer_cloud.android.speech_to_text.v1.SpeechToText;
@@ -131,15 +133,8 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         setContentView(R.layout.activity_ranging);
-
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                setProgressBarIndeterminateVisibility(true);
-            }
-        });
+        Toast.makeText(getApplicationContext(), "Scanning...", Toast.LENGTH_SHORT).show();
 
         mHandler = new Handler();
         beaconManager.bind(this);
@@ -180,7 +175,7 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                 else if (mState == ConnectionState.CONNECTED) {
                     mState = ConnectionState.IDLE;
                     SpeechToText.sharedInstance().stopRecognition();
-                    // TODO: Send text to cloud to initiate search
+
                     new AsyncTask<Void, Void, Void>(){
                         @Override
                         protected Void doInBackground(Void... none) {
@@ -282,12 +277,6 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                    newestBeacons.clear();
                }
 
-               runOnUiThread(new Runnable() {
-                   @Override
-                   public void run() {
-                       setProgressBarIndeterminateVisibility(false);
-                   }
-               });
                displayBeaconsFound();
            }
         });
@@ -327,11 +316,10 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
 
         //Reader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
 
-        // TODO: Read in JSON
         JSONReader jsonReader = new JSONReader();
         displayBeaconArray.clear();
         displayBeaconArray.addAll(jsonReader.readJsonStream(conn.getInputStream()));
-        //displayBeaconArray = jsonReader.readJsonStream(conn.getInputStream());
+
 
         /*for (int c; (c = in.read()) >= 0;) {
             System.out.print((char) c);
