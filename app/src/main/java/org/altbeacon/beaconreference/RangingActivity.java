@@ -65,6 +65,8 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
@@ -107,6 +109,9 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
     private ArrayList<DisplayBeacon> displayBeaconArray = new ArrayList<DisplayBeacon>() {};
     private ArrayAdapter<DisplayBeacon> adapter;
     private ProgressDialog progDialog;
+    private LinearLayout myGallery;
+    private TextView textView2;
+    private TextView textView4;
     private int inc = 1;
 
     @Override
@@ -134,7 +139,13 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_ranging);
-        Toast.makeText(getApplicationContext(), "Scanning...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(getApplicationContext(), "Loading...", Toast.LENGTH_SHORT).show();
+        myGallery = (LinearLayout)findViewById(R.id.mygallery);
+        textView2 = (TextView)findViewById(R.id.textView2);
+        textView4 = (TextView)findViewById(R.id.textView4);
+        myGallery.setVisibility(View.INVISIBLE);
+        textView2.setVisibility(View.INVISIBLE);
+        textView4.setVisibility(View.INVISIBLE);
 
         mHandler = new Handler();
         beaconManager.bind(this);
@@ -188,6 +199,58 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                         }
                     }.execute();
                 }
+            }
+        });
+
+        // Stage links to boots images
+        ImageView img = (ImageView)findViewById(R.id.imageView1);
+        img.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                Intent intent = new Intent();
+                intent.setAction(Intent.ACTION_VIEW);
+                intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                intent.setData(Uri.parse("http://www.peterglenn.com/product/north-face-hedgehog-fastpack-mid-gore-tex-boot-mens?utm_source=GooglePLA&utm_medium=PPC&utm_campaign=Shopping+Feeds_THE+NORTH+FACE+INC"));
+                startActivity(intent);
+            }
+        });
+        ImageView img2 = (ImageView)findViewById(R.id.imageView2);
+        img2.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                Intent intent = new Intent();
+                intent.setAction(Intent.ACTION_VIEW);
+                intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                intent.setData(Uri.parse("http://www.backcountry.com/the-north-face-hedgehog-fastpack-mid-gtx-hiking-boot-mens?CMP_SKU=TNF01VT&MER=0406&skid=TNF01VT-TNBLSHGR-S7&CMP_ID=PLA_GOc001&mv_pc=r101&utm_source=Google&utm_medium=PLA&mr:trackingCode=D957B163-E346-E611-80F4-005056944E17&mr:referralID=NA&mr:device=c&mr:adType=plaonline&gclid=Cj0KEQjwztG8BRCJgseTvZLctr8BEiQAA_kBD7y4GStIJHwT4qv3r6BgIsoG2_Ra74NGFngfYG1uu0kaAupY8P8HAQ&gclsrc=aw.ds"));
+                startActivity(intent);
+            }
+        });
+        ImageView img3 = (ImageView)findViewById(R.id.imageView3);
+        img3.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                Intent intent = new Intent();
+                intent.setAction(Intent.ACTION_VIEW);
+                intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                intent.setData(Uri.parse("http://www.zappos.com/the-north-face-hedgehog-fastpack-mid-gtx-shroom-brown-brushfire-orange?ef_id=V2HVZwAAAbLEuj0j:20160725043433:s"));
+                startActivity(intent);
+            }
+        });
+        ImageView img4 = (ImageView)findViewById(R.id.imageView4);
+        img4.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                Intent intent = new Intent();
+                intent.setAction(Intent.ACTION_VIEW);
+                intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                intent.setData(Uri.parse("https://www.thenorthface.com/shop/mens-hedgehog-hike-mid-gore-tex?from=subCat&variationId=APS&cm_mmc=Google-_-ProductListingAds-_-ProductTerms-_-The+North+Face+Men+s+Hedgehog+Hike+Mid+Gore-TEX+Waterproof+Boots+10+&dvid=c&aptid=123738190110&adtid=pla&crtID=54075327750&pdtid=CDF5APS100&pptid=123738190110&dvid=c&aptid=123738190110&adtid=pla&crtID=54075327750&pdtid=CDF5APS100&pptid=123738190110&lsft=dvid:c,aptid:123738190110,adtid:pla,crtID:54075327750,pdtid:CDF5APS100,pptid:123738190110&gclid=Cj0KEQjwztG8BRCJgseTvZLctr8BEiQAA_kBD8EzYDuWrmBiU4pQ_pewaLLvsEiszwO8dACA8lCmSgEaAvIV8P8HAQ"));
+                startActivity(intent);
+            }
+        });
+        ImageView img5 = (ImageView)findViewById(R.id.imageView5);
+        img5.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                Intent intent = new Intent();
+                intent.setAction(Intent.ACTION_VIEW);
+                intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                intent.setData(Uri.parse("http://www.mountaingear.com/webstore//Footwear/Hedgehog-Hike-Mid-GTX-Boot-Men-s/_/R-243915.htm?voucherCode=979100&id=243915gie__11&gclid=Cj0KEQjwztG8BRCJgseTvZLctr8BEiQAA_kBD0wy_Rr0k2NK2lgzeipEms9vblZ_u4FdpYFIM36BlFYaAiA78P8HAQ&ad=93106472295"));
+                startActivity(intent);
             }
         });
     }
@@ -278,6 +341,14 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                }
 
                displayBeaconsFound();
+               runOnUiThread(new Runnable() {
+                   @Override
+                   public void run() {
+                       myGallery.setVisibility(View.VISIBLE);
+                       textView2.setVisibility(View.VISIBLE);
+                       textView4.setVisibility(View.VISIBLE);
+                   }
+               });
            }
         });
         try {
