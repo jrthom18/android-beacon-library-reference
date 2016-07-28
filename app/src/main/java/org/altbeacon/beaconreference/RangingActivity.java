@@ -253,6 +253,14 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                 startActivity(intent);
             }
         });
+
+        Button refreshButton = (Button)findViewById(R.id.refreshButton);
+        refreshButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View arg0) {
+                // TODO: Rescan for beacons and update display
+            }
+        });
     }
 
     private void makeVoiceSearch(String searchText) throws IOException {
@@ -320,7 +328,6 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                        //sendNotification("Beacon nearby: " + url);
                        // Send beacon data to cloud
                        // TODO: Pass Facebook ID into first data parameter
-
                        List<Object> data = new ArrayList<>();
                        data.add(1);
                        data.add(url);
