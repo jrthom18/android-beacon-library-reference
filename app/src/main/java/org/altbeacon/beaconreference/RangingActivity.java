@@ -139,6 +139,7 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_ranging);
+        beaconManager.bind(this);
         Toast.makeText(getApplicationContext(), "Loading...", Toast.LENGTH_SHORT).show();
         myGallery = (LinearLayout)findViewById(R.id.mygallery);
         textView2 = (TextView)findViewById(R.id.textView2);
@@ -148,7 +149,6 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
         textView4.setVisibility(View.INVISIBLE);
 
         mHandler = new Handler();
-        beaconManager.bind(this);
 
         adapter = new ArrayAdapter<DisplayBeacon>(this,
                 android.R.layout.simple_list_item_1, android.R.id.text1, displayBeaconArray);
@@ -328,6 +328,7 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
                        //sendNotification("Beacon nearby: " + url);
                        // Send beacon data to cloud
                        // TODO: Pass Facebook ID into first data parameter
+
                        List<Object> data = new ArrayList<>();
                        data.add(1);
                        data.add(url);
@@ -392,17 +393,16 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
         conn.setDoOutput(true);
         conn.getOutputStream().write(postDataBytes);
 
-        //Reader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+        Reader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
 
         JSONReader jsonReader = new JSONReader();
         displayBeaconArray.clear();
         displayBeaconArray.addAll(jsonReader.readJsonStream(conn.getInputStream()));
 
 
-        /*for (int c; (c = in.read()) >= 0;) {
+        for (int c; (c = in.read()) >= 0;) {
             System.out.print((char) c);
-            char ch = ((char) c);
-        }*/
+        }
 
         params.clear();
     }
@@ -578,6 +578,4 @@ public class RangingActivity extends ListActivity implements BeaconConsumer, ISp
             }
         }.start();
     }
-
-
 }
