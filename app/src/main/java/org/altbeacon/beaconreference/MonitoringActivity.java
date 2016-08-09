@@ -3,6 +3,9 @@ package org.altbeacon.beaconreference;
 import android.Manifest;
 import android.annotation.TargetApi;
 import android.content.pm.PackageManager;
+import android.content.res.TypedArray;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.Bundle;
 import android.app.Activity;
@@ -12,8 +15,10 @@ import android.content.Intent;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.GridView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -39,6 +44,8 @@ import org.altbeacon.beacon.BeaconParser;
 import org.altbeacon.beacon.MonitorNotifier;
 import org.altbeacon.beacon.Region;
 
+import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -53,6 +60,8 @@ public class MonitoringActivity extends Activity  {
     private CallbackManager callbackManager;
     private AccessTokenTracker accessTokenTracker;
     private ProfileTracker profileTracker;
+	private GridView gridView;
+	private GridViewAdapter gridAdapter;
 
     //Facebook login button
     private FacebookCallback<LoginResult> callback = new FacebookCallback<LoginResult>() {
@@ -76,6 +85,9 @@ public class MonitoringActivity extends Activity  {
 		Log.d(TAG, "onCreate");
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_monitoring);
+		gridView = (GridView) findViewById(R.id.gridView);
+		gridAdapter = new GridViewAdapter(this, R.layout.grid_item_layout, getData());
+		gridView.setAdapter(gridAdapter);
 		verifyBluetooth();
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -168,9 +180,9 @@ public class MonitoringActivity extends Activity  {
 		final CheckBox checkBox1 = (CheckBox) findViewById(R.id.checkBox1);
 		final CheckBox checkBox2 = (CheckBox) findViewById(R.id.checkBox2);
 		final CheckBox checkBox3 = (CheckBox) findViewById(R.id.checkBox3);
-		final LinearLayout myGallery = (LinearLayout)findViewById(R.id.mygallery);
+		final GridView gridView = (GridView)findViewById(R.id.gridView);
 		final Button pinterestLogin = (Button) findViewById(R.id.pinterest_login);
-		myGallery.setVisibility(View.INVISIBLE);
+		gridView.setVisibility(View.INVISIBLE);
 
 		pinterestLogin.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -179,7 +191,7 @@ public class MonitoringActivity extends Activity  {
 					@Override
 					public void run() {
 						Toast.makeText(getApplicationContext(), "Loading Pin Images...", Toast.LENGTH_SHORT).show();
-						myGallery.setVisibility(View.VISIBLE);
+						gridView.setVisibility(View.VISIBLE);
 					}
 				});
 			}
@@ -213,6 +225,29 @@ public class MonitoringActivity extends Activity  {
 				spinner2.setVisibility(View.INVISIBLE);
 			}
 		});
+
+		gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+			public void onItemClick(AdapterView<?> parent, View v, int position, long id) {
+				ImageItem item = (ImageItem) parent.getItemAtPosition(position);
+				//Create intent
+				Intent i = new Intent(MonitoringActivity.this, DetailsActivity.class);
+				Bitmap b = item.getImage(); // your bitmap
+				ByteArrayOutputStream bs = new ByteArrayOutputStream();
+				b.compress(Bitmap.CompressFormat.PNG, 50, bs);
+				i.putExtra("byteArray", bs.toByteArray());
+				i.putExtra("title", item.getTitle());
+				startActivity(i);
+			}
+		});
+	}
+	private ArrayList<ImageItem> getData() {
+		final ArrayList<ImageItem> imageItems = new ArrayList<>();
+		TypedArray imgs = getResources().obtainTypedArray(R.array.image_ids);
+		for (int i = 0; i < imgs.length(); i++) {
+			Bitmap bitmap = BitmapFactory.decodeResource(getResources(), imgs.getResourceId(i, -1));
+			imageItems.add(new ImageItem(bitmap, "Image#" + i));
+		}
+		return imageItems;
 	}
 
 	private void getUserFeed() {

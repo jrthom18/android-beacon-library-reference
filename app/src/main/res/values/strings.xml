@@ -21,4 +21,11 @@
         <item>Patagonia</item>
     </string-array>
 
+    <string-array name="image_ids">
+        <item>@drawable/pin_boots1</item>
+        <item>@drawable/pin_boots2</item>
+        <item>@drawable/pin_boots3</item>
+        <item>@drawable/pin_boots4</item>
+    </string-array>
+
 </resources>

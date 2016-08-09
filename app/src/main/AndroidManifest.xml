@@ -37,6 +37,10 @@
             android:name="org.altbeacon.beaconreference.RangingActivity"
             android:label="@string/app_name" >
         </activity>
+        <activity
+            android:name="org.altbeacon.beaconreference.DetailsActivity"
+            android:label="@string/app_name" >
+        </activity>
     </application>
 
 </manifest>
